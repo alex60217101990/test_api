@@ -1,0 +1,12 @@
+*
+!*/
+!*.*
+*vscode
+tmp
+*.elf
+*.json
+*.yaml
+*.idea
+*.test
+*.tmp
+application.yaml
