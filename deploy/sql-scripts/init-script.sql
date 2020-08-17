@@ -1,15 +1,19 @@
+CREATE DATABASE pgx_test;
+CREATE DOMAIN uint64 AS numeric(20,0);
+
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
 CREATE TABLE IF NOT EXISTS users (
 	id INT GENERATED ALWAYS AS IDENTITY,
-	public_id UUID NOT NULL DEFAULT gen_random_uuid(),
+	public_id UUID NOT NULL DEFAULT gen_random_uuid() UNIQUE,
   	username varchar(45) NOT NULL,
-	email varchar(100) NOT NULL,
+	email varchar(100) NOT NULL UNIQUE,
   	password varchar(450) NOT NULL,
   	is_online bool NOT NULL DEFAULT false,
 	created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT (CURRENT_TIMESTAMP at TIME ZONE 'utc'),
 	updated_at TIMESTAMP WITHOUT TIME ZONE DEFAULT (CURRENT_TIMESTAMP at TIME ZONE 'utc'),
 	deleted_at TIMESTAMP WITHOUT TIME ZONE,
-	PRIMARY KEY(id)
+	PRIMARY KEY(id),
+	UNIQUE(username, email, password)
 );
 
 CREATE INDEX IF NOT EXISTS users_brin_idx  ON users USING brin (public_id);
@@ -18,10 +22,10 @@ CREATE INDEX IF NOT EXISTS email_idx ON users(email);
 
 CREATE TABLE IF NOT EXISTS product_categories(
    	id INT GENERATED ALWAYS AS IDENTITY,
-	public_id UUID NOT NULL DEFAULT gen_random_uuid(),
+	public_id UUID NOT NULL DEFAULT gen_random_uuid() UNIQUE,
 	change_by_user INT,
-   	name VARCHAR(100) NOT NULL,
-	popularity BIGINT,
+   	name VARCHAR(100) NOT NULL UNIQUE,
+	popularity BIGINT DEFAULT 0,
 	created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT (CURRENT_TIMESTAMP at TIME ZONE 'utc'),
 	updated_at TIMESTAMP WITHOUT TIME ZONE DEFAULT (CURRENT_TIMESTAMP at TIME ZONE 'utc'),
 	deleted_at TIMESTAMP WITHOUT TIME ZONE,
@@ -37,19 +41,14 @@ CREATE INDEX IF NOT EXISTS product_categories_brin_idx  ON product_categories U
 
 CREATE TABLE IF NOT EXISTS products(
    	id INT GENERATED ALWAYS AS IDENTITY,
-	public_id UUID NOT NULL DEFAULT gen_random_uuid(),
+	public_id UUID NOT NULL DEFAULT gen_random_uuid() UNIQUE,
 	change_by_user INT,
-	categorie_id INT,
-   	name VARCHAR(100) NOT NULL,
-   	popularity BIGINT,
+   	name VARCHAR(100) NOT NULL UNIQUE,
+   	popularity BIGINT DEFAULT 0,
 	created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT (CURRENT_TIMESTAMP at TIME ZONE 'utc'),
 	updated_at TIMESTAMP WITHOUT TIME ZONE DEFAULT (CURRENT_TIMESTAMP at TIME ZONE 'utc'),
 	deleted_at TIMESTAMP WITHOUT TIME ZONE,
    	PRIMARY KEY(id),
-   	CONSTRAINT fk_categorie
-      	FOREIGN KEY(categorie_id) 
-	  		REFERENCES product_categories(id)
-			ON DELETE SET NULL,
 	CONSTRAINT fk_user_change_product
       	FOREIGN KEY(change_by_user) 
 	  		REFERENCES users(id)
@@ -58,3 +57,15 @@ CREATE TABLE IF NOT EXISTS products(
 
 CREATE INDEX IF NOT EXISTS name_idx ON product_categories(name);
 CREATE INDEX IF NOT EXISTS product_categories_brin_idx  ON products USING brin (public_id);
+
+CREATE TABLE IF NOT EXISTS product_category_relations (
+  	product_id int NOT NULL 
+	REFERENCES products (id) 
+		ON UPDATE CASCADE 
+		ON DELETE CASCADE, 
+	category_id int NOT NULL 
+	REFERENCES product_categories (id) 
+		ON UPDATE CASCADE 
+		ON DELETE CASCADE, 
+	CONSTRAINT product_category_pkey PRIMARY KEY (product_id, category_id)
+);
