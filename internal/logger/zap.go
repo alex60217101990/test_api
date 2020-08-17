@@ -1,6 +1,7 @@
 package logger
 
 import (
+	"fmt"
 	"os"
 
 	"go.uber.org/zap"
@@ -101,6 +102,14 @@ func (l *ZapLogger) Errorf(tpl string, args map[string]interface{}) {
 		fields = append(fields, zap.Any(k, v))
 	}
 	l.logger.Error(tpl, fields...)
+}
+
+func (l *ZapLogger) Printf(format string, args ...interface{}) {
+	defer func() {
+		_ = l.logger.Sync()
+	}()
+
+	l.logger.Warn(fmt.Sprintf(format, args...))
 }
 
 func (l *ZapLogger) Warn(msg string) {

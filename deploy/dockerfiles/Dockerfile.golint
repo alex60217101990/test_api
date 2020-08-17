@@ -1,16 +1,4 @@
-# # Compile stage
-# FROM golang:1.14.7-alpine3.11 AS build-env
-# RUN apk add --no-cache git=2.27.0
-# RUN go get -u github.com/golangci/golangci-lint/cmd/golangci-lint
-
-# # Final stage
-# FROM alpine:3.11
-# WORKDIR /
-# COPY . .
-# COPY --from=build-env /go/bin/golangci-lint /
-# # Run delve
-# CMD ["/golangci-lint", "run", "-v"]
-
+# Compile stage
 FROM golangci/golangci-lint:v1.30.0
 WORKDIR /app
 COPY . /app

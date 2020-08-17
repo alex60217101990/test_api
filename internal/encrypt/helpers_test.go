@@ -1,12 +1,17 @@
 package encrypt
 
 import (
+	"bytes"
 	"fmt"
 	"os"
 	"testing"
 
+	"github.com/alex60217101990/test_api/internal/helpers"
+	"github.com/dimiro1/banner"
+
 	"github.com/alex60217101990/test_api/internal/configs"
 	"github.com/alex60217101990/test_api/internal/logger"
+	"github.com/valyala/fasthttp"
 )
 
 func init() {
@@ -46,4 +51,17 @@ func TestDecryptPassword(t *testing.T) {
 	}
 	fmt.Println("OUT: ", string(bts))
 	t.Log(string(bts))
+}
+
+func TestContext(t *testing.T) {
+	fctx := fasthttp.RequestCtx{}
+	fctx.SetUserValue("123", "321")
+
+	fmt.Println(helpers.GetFromContext(&fctx, "123"))
+}
+
+func TestParseFont(t *testing.T) {
+	isEnabled := true
+	isColorEnabled := true
+	banner.Init(os.Stdout, isEnabled, isColorEnabled, bytes.NewBufferString("My Custom Banner"))
 }

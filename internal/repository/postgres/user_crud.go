@@ -12,6 +12,65 @@ import (
 	"github.com/jackc/pgx/v4/pgxpool"
 )
 
+func (r *Repository) GetUserByPubliID(ctx context.Context, publicID string, associate ...struct{}) (user *models.User, err error) {
+	defer func() {
+		if user != nil && len(user.Password) > 0 {
+			user.AfterFind()
+		}
+		if err != nil {
+			err = errors.WithMessage(err, "get user by 'public_id'")
+		}
+	}()
+
+	var conn *pgxpool.Conn
+	conn, err = r.Acquire(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer conn.Release()
+
+	if len(associate) > 0 {
+		var rows pgx.Rows
+		rows, err = conn.Query(ctx,
+			fmt.Sprintf(
+				`SELECT u.*, 
+			COALESCE(
+				(SELECT json_agg(pc) FROM product_categories pc
+				WHERE pc.change_by_user = u.id
+				AND pc.deleted_at IS NULL), '{}') json_pc,
+			COALESCE(
+				(SELECT json_agg(pr) FROM products pr
+				WHERE pr.change_by_user = u.id
+				AND pr.deleted_at IS NULL), '{}') json_pr
+			FROM users u 
+			WHERE u.public_id = '%s'
+				AND u.deleted_at IS NULL;`, publicID),
+		)
+		if err != nil {
+			return nil, err
+		}
+
+		users := make([]*models.User, 0)
+		users, err = repository.ConvertMultipleRowsToUser(ctx, rows)
+		if err != nil {
+			return nil, err
+		}
+		if len(users) == 0 {
+			return nil, pgx.ErrNoRows
+		}
+
+		return users[0], err
+	}
+
+	row := conn.QueryRow(ctx,
+		`SELECT u.* FROM public.users u 
+		WHERE u.public_id = $1
+			AND u.deleted_at IS NULL;`, publicID,
+	)
+
+	return repository.ConvertSingleRowToUser(ctx, row)
+}
+
 func (r *Repository) GetUserByCreeds(ctx context.Context, creeds *models.Credentials, associate ...struct{}) (user *models.User, err error) {
 	defer func() {
 		if user != nil && len(user.Password) > 0 {
@@ -29,20 +88,29 @@ func (r *Repository) GetUserByCreeds(ctx context.Context, creeds *models.Credent
 	}
 	defer conn.Release()
 
+	err = creeds.BeforeQuery()
+	if err != nil {
+		return nil, err
+	}
+
 	if len(associate) > 0 {
 		var rows pgx.Rows
 		rows, err = conn.Query(ctx,
 			fmt.Sprintf(
-				`SELECT u.*, pc.*, pr.* FROM public.users u 
-			JOIN public.product_categories pc
-				ON u.id = pc.change_by_user
-			JOIN public.products pr
-				ON u.id = pr.change_by_user
+				`SELECT
+			u.*, 
+			COALESCE(
+				(SELECT json_agg(pc) FROM product_categories pc
+				WHERE pc.change_by_user = u.id
+				AND pc.deleted_at IS NULL), '{}') json_pc,
+			COALESCE(
+				(SELECT json_agg(pr) FROM products pr
+				WHERE pr.change_by_user = u.id
+				AND pr.deleted_at IS NULL), '{}') json_pr
+			FROM users u 
 			WHERE (u.username = '%s' OR u.email = '%s') 
 				AND u.password = '%s'
-				AND u.deleted_at IS NULL
-				AND pc.deleted_at IS NULL
-				AND pr.deleted_at IS NULL;`,
+				AND u.deleted_at IS NULL;`,
 				creeds.Username, creeds.Email, creeds.Password,
 			),
 		)
@@ -64,7 +132,7 @@ func (r *Repository) GetUserByCreeds(ctx context.Context, creeds *models.Credent
 
 	row := conn.QueryRow(ctx,
 		`SELECT u.* FROM public.users u 
-			WHERE (u.username = $1 OR u.email = $2) 
+		WHERE (u.username = $1 OR u.email = $2) 
 			AND u.password = $3
 			AND u.deleted_at IS NULL;`,
 		creeds.Username, creeds.Email, creeds.Password,
@@ -151,7 +219,7 @@ func (r *Repository) UpdateUser(ctx context.Context, user *models.User) (err err
 	return err
 }
 
-func (r *Repository) DeleteSoft(ctx context.Context, publicID string) (err error) {
+func (r *Repository) DeleteSoftUser(ctx context.Context, publicID string) (err error) {
 	defer func() {
 		if err != nil {
 			err = errors.WithMessage(err, "soft delete user posrgres repo")
@@ -174,7 +242,7 @@ func (r *Repository) DeleteSoft(ctx context.Context, publicID string) (err error
 	return err
 }
 
-func (r *Repository) DeleteHard(ctx context.Context, publicID string) (err error) {
+func (r *Repository) DeleteHardUser(ctx context.Context, publicID string) (err error) {
 	defer func() {
 		if err != nil {
 			err = errors.WithMessage(err, "hard delete user posrgres repo")

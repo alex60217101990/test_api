@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 
+	"github.com/liamylian/jsontime"
 	"github.com/pkg/errors"
 
 	"github.com/alex60217101990/test_api/internal/models"
@@ -73,83 +74,76 @@ func ConvertSingleRowToUser(ctx context.Context, row interface{}) (u *models.Use
 	}
 }
 
-func convertMapConfigsToUserSlice(ctx context.Context, rowMap map[string]*models.User) (users []*models.User) {
+func convertMultipleSQLRowsToUser(ctx context.Context, rows SQLRows) (users []*models.User, err error) {
 	users = make([]*models.User, 0)
 
-	for _, user := range rowMap {
-		users = append(users, user)
-	}
-
-	return users
-}
-
-func convertMultipleSQLRowsToUser(ctx context.Context, rows SQLRows) (users []*models.User, err error) {
 	defer func() {
 		if err != nil {
-			err = errors.WithMessage(err, "convert multiple SQL rows to model")
+			err = errors.WithMessage(err, "convert multiple SQL rows to User model")
 		}
 	}()
 
-	tmpUsersMap := make(map[string]*models.User)
+	if err = rows.Err(); err != nil {
+		return nil, err
+	}
 
+	var (
+		categoriesListRow, productsListRow string
+	)
 	for rows.Next() {
-		var (
-			newUser     models.User
-			newCategory models.Category
-			newProduct  models.Product
-
-			changeUserIDCat, changeUserIDProd, categoryID int
-		)
+		newUser := models.User{
+			Categories: make([]*models.Category, 0),
+			Products:   make([]*models.Product, 0),
+		}
 
 		err = rows.Scan(
 			&newUser.ID, &newUser.PublicID, &newUser.Username,
 			&newUser.Email, &newUser.Password, &newUser.IsOnline,
 			&newUser.CreatedAt, &newUser.UpdatedAt, &newUser.DeletedAt,
-			&newCategory.ID, &newCategory.PublicID, &changeUserIDCat,
-			&newCategory.Name, &newCategory.Popularity,
-			&newCategory.CreatedAt, &newCategory.UpdatedAt,
-			&newCategory.DeletedAt, &newProduct.ID, &newProduct.PublicID,
-			&changeUserIDProd, &categoryID, &newProduct.Name,
-			&newProduct.Popularity, &newProduct.CreatedAt,
-			&newProduct.UpdatedAt, &newProduct.DeletedAt,
+			&categoriesListRow, &productsListRow,
 		)
 		if err != nil {
 			return nil, err
 		}
 
-		if u, ok := tmpUsersMap[newUser.PublicID.String()]; !ok {
-			if newCategory.ID > 0 {
-				newUser.Categories = []*models.Category{&newCategory}
-			}
-			tmpUsersMap[newUser.PublicID.String()] = &newUser
-		} else {
-			if u.Products == nil {
-				u.Products = make([]*models.Product, 0)
-			}
-			if newProduct.ID > 0 {
-				u.Products = append(u.Products, &newProduct)
-			}
-			if u.Categories == nil {
-				u.Categories = make([]*models.Category, 0)
-			}
-			if newCategory.ID > 0 {
-				u.Categories = append(u.Categories, &newCategory)
+		var json = jsontime.ConfigWithCustomTimeFormat
+
+		if len(categoriesListRow) > 0 {
+			err = json.Unmarshal([]byte(categoriesListRow), &newUser.Categories)
+
+			if err1 := checkEmptyJson([]byte(categoriesListRow)); err != nil && err1 != nil {
+				return nil, err
 			}
 		}
+
+		if len(productsListRow) > 0 {
+			err = json.Unmarshal([]byte(productsListRow), &newUser.Products)
+
+			if err1 := checkEmptyJson([]byte(productsListRow)); err != nil && err1 != nil {
+				return nil, err
+			}
+		}
+
+		users = append(users, &newUser)
 	}
 
-	return convertMapConfigsToUserSlice(ctx, tmpUsersMap), nil
+	return users, nil
+}
+
+func afterUsers(users []*models.User) (err error) {
+	for _, user := range users {
+		if len(user.Password) > 0 {
+			err = user.AfterFind()
+		}
+	}
+	return err
 }
 
 func ConvertMultipleRowsToUser(ctx context.Context, row interface{}) (users []*models.User, err error) {
 	users = make([]*models.User, 0)
 
 	defer func() {
-		for _, user := range users {
-			if len(user.Password) > 0 {
-				err = user.AfterFind()
-			}
-		}
+		err = afterUsers(users)
 		if err != nil {
 			err = errors.WithMessage(err, "convert multiple rows to User/s model")
 		}
@@ -157,8 +151,10 @@ func ConvertMultipleRowsToUser(ctx context.Context, row interface{}) (users []*m
 
 	switch v := row.(type) {
 	case *sql.Rows:
+		defer v.Close()
 		return convertMultipleSQLRowsToUser(ctx, v)
 	case pgx.Rows:
+		defer v.Close()
 		return convertMultipleSQLRowsToUser(ctx, v)
 	default:
 		return nil, fmt.Errorf("has't info about type %T", v)

@@ -1,0 +1,18 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Values.bannersConfigMapName }}
+  namespace: {{ .Values.namespace }}
+  labels:
+    {{- include "test-api.labels" . | nindent 4 }} 
+data: 
+  cybermedium.txt: |- 
+    ___ ____ ____ ___    ____ ___  _
+     |  |___ [__   |  __ |__| |__] |
+     |  |___ ___]  |     |  | |    |
+  smpoison.txt: |-
+    @@@@@@@ @@@@@@@@  @@@@@@ @@@@@@@           @@@@@@  @@@@@@@  @@@
+      @!!   @@!      !@@       @!!            @@!  @@@ @@!  @@@ @@!
+      @!!   @!!!:!    !@@!!    @!!   @!@!@!@! @!@!@!@! @!@@!@!  !!@
+      !!:   !!:          !:!   !!:            !!:  !!! !!:      !!:
+       :    : :: ::  ::.: :     :              :   : :  :       :

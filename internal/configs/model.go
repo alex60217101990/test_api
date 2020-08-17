@@ -9,12 +9,15 @@ import (
 var Conf *Configs
 
 type Configs struct {
-	Ver        *string    `yaml:"ver"`
-	IsDebug    bool       `yaml:"-" json:"-"`
-	LoggerType LoggerType `yaml:"logger-type"`
-	Server     *Server    `yaml:"http-server"`
-	DB         *DB        `yaml:"db"`
-	Keys       *Keys      `yaml:"keys"`
+	Ver         *string    `yaml:"ver"`
+	ServiceName string     `yaml:"service-name" json:"service_name"`
+	IsDebug     bool       `yaml:"-" json:"-"`
+	LoggerType  LoggerType `yaml:"logger-type" json:"logger_type"`
+	APIKey      string     `yaml:"api-key" json:"api_key"`
+	Server      *Server    `yaml:"http-server" json:"http_server"`
+	DB          *DB        `yaml:"db"`
+	Keys        *Keys      `yaml:"keys"`
+	Timeouts    *Timeouts  `yaml:"timeouts"`
 }
 
 type Server struct {
@@ -144,4 +147,10 @@ type Keys struct {
 	PubKeyRepo string `yaml:"pub-key-repo" json:"pub_key_repo"`
 	PrvKeyAuth string `yaml:"prv-key-auth" json:"prv_key_auth"`
 	PubKeyAuth string `yaml:"pub-key-auth" json:"pub_key_auth"`
+}
+
+type Timeouts struct {
+	DefaultTimeout uint8  `yaml:"default-timeout" json:"default_timeout"`
+	ExpHours       uint8  `yaml:"exp-hours" json:"exp_hours"`
+	ExpSeconds     uint16 `yaml:"exp-seconds" json:"exp_seconds"`
 }

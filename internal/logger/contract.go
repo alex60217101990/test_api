@@ -10,5 +10,6 @@ type Logger interface {
 	Warnf(tpl string, args map[string]interface{})
 	Fatal(err error)
 	Fatalf(tpl string, args map[string]interface{})
+	Printf(format string, args ...interface{})
 	Close()
 }

@@ -1,16 +1,20 @@
 # Compile stage
 FROM golang:1.14.7-alpine3.11 AS build-env
-RUN apk add --no-cache git=2.24.3-r0
+RUN apk update && apk add --no-cache git=2.24.3-r0
 ENV GO111MODULE='on'
 ENV CGO_ENABLED=0
 ENV GOOS=linux
-COPY . /go/src/test-api
-RUN ls -hla ./
-RUN go build -v -x -i -a -pkgdir /tmp/pkgs -o /tmp/server ./src/test-api/cmd/app/main.go
+ENV GOARCH=amd64
+WORKDIR $GOPATH/src/github.com/alex60217101990/test_api
+COPY . .
+RUN go mod download
+RUN ls -hla
+# Build the binary.
+RUN go build -v -ldflags="-w -s" -o /go/bin/server ./cmd/app/main.go
 
 # Final stage
 FROM alpine:3.11
-EXPOSE 8080
+EXPOSE 8087
 WORKDIR /
-COPY --from=build-env /tmp/server /
-CMD ["/server", "-config='/var/test-api/application.yaml'", "-debug=true"]
+COPY --from=build-env /go/bin/server /
+CMD ["/server", "-conf", "/etc/configs/application.yaml", "-debug", "true"]

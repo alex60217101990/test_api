@@ -4,8 +4,9 @@
 *vscode
 tmp
 *.elf
-*.json
-*.yaml
+# *.json
+# *.yaml
+!Makefile*
 *.idea
 *.test
 *.tmp

@@ -14,7 +14,7 @@ var (
 
 	CmdServer = color.New(color.FgHiGreen, color.Bold)
 	CmdError  = color.New(color.FgHiRed, color.Bold)
-	CmdInfo   = color.New(color.FgHiBlue, color.Faint)
+	CmdInfo   = color.New(color.FgHiBlue, color.Bold)
 
 	AppLogger  Logger
 	RepoLogger *log.Logger

@@ -1,11 +1,13 @@
 package encrypt
 
 import (
+	"context"
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/sha1"
 	"crypto/x509"
 	"crypto/x509/pkix"
+	"encoding/base64"
 	"encoding/hex"
 	"encoding/pem"
 	"fmt"
@@ -14,6 +16,8 @@ import (
 	"os"
 	"path/filepath"
 	"time"
+
+	"golang.org/x/sync/errgroup"
 
 	"github.com/pkg/errors"
 
@@ -51,12 +55,24 @@ func generatePrivateKey(bitSize int) (*rsa.PrivateKey, error) {
 	return privateKey, nil
 }
 
+func DecodeAPIKey() (string, error) {
+	var (
+		err    error
+		apiKey []byte
+	)
+	apiKey, err = base64.StdEncoding.DecodeString(configs.Conf.APIKey)
+	if err != nil {
+		return "", err
+	}
+	return string(apiKey), err
+}
+
 // encodePrivateKeyToPEM encodes Private Key from RSA to PEM format
-func encodePrivateKeyToPEM(privateKey *rsa.PrivateKey) []byte {
+func EncodePrivateKeyToPEM(privateKey *rsa.PrivateKey) []byte {
 	return pem.EncodeToMemory(&pem.Block{Bytes: x509.MarshalPKCS1PrivateKey(privateKey)})
 }
 
-func encodePublicKeyToPEM(publicKey *rsa.PublicKey) []byte {
+func EncodePublicKeyToPEM(publicKey *rsa.PublicKey) []byte {
 	return pem.EncodeToMemory(&pem.Block{
 		Bytes: x509.MarshalPKCS1PublicKey(publicKey),
 	})
@@ -87,6 +103,22 @@ func writeKeyToFile(keyBytes []byte, saveFileTo string) error {
 	}
 
 	return nil
+}
+
+func GetRSAKeys(ctx context.Context, pubPath, prvPath string) (prvKey *rsa.PrivateKey, pubKey *rsa.PublicKey, err error) {
+	eg, _ := errgroup.WithContext(ctx)
+
+	eg.Go(func() (err error) {
+		pubKey, err = getPublicKeyFile(pubPath)
+		return err
+	})
+
+	eg.Go(func() (err error) {
+		prvKey, err = getPrivateKey(prvPath)
+		return err
+	})
+
+	return prvKey, pubKey, eg.Wait()
 }
 
 func getPrivateKey(file string) (*rsa.PrivateKey, error) {
